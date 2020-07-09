@@ -20,5 +20,7 @@
     "fs-extra": "^9.0.1",
     "node-pause": "^1.0.1",
     "semver": "^7.3.2"
-  }
+  },
+  
+  "bin": "index.js"
 }
