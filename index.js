@@ -1,6 +1,5 @@
 // Imports
 const fs = require("fs-extra");
-const semver = require("semver");
 const pause = require("node-pause");
 
 // Get conf

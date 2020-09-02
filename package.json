@@ -18,9 +18,7 @@
   "homepage": "https://github.com/cyqsimon/WoWS-Mod-Installer#readme",
   "dependencies": {
     "fs-extra": "^9.0.1",
-    "node-pause": "^1.0.1",
-    "semver": "^7.3.2"
+    "node-pause": "^1.0.1"
   },
-
   "bin": "index.js"
 }
