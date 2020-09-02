@@ -36,23 +36,7 @@ try {
   const versionDirs = fs.readdirSync(`${gameDir}/bin`, {withFileTypes: true}).filter((ent) => ent.isDirectory());
   versionDirs.sort((ent1, ent2) => (Number.parseInt(ent2.name, 10) - Number.parseInt(ent1.name, 10)));
   const newestVersionDir = versionDirs[0];
-  const resModsDir = `${gameDir}/bin/${newestVersionDir.name}/res_mods`;
-  const semverDirs = fs.readdirSync(resModsDir, {withFileTypes: true}).filter((ent) => ent.isDirectory());
-  semverDirs.sort((ent1, ent2) => {
-    const semverComp = semver.rcompare(semver.coerce(ent1.name), semver.coerce(ent2.name));
-    if (semverComp !== 0) {
-      return semverComp;
-    } else {
-      const prefixRegex = /(\d+\.){2}\d+\.?/;
-      let v1Sub = semver.coerce(ent1.name.replace(prefixRegex, ""));
-      let v2Sub = semver.coerce(ent2.name.replace(prefixRegex, ""));
-      v1Sub = (v1Sub === null) ? semver.coerce("0") : v1Sub;
-      v2Sub = (v2Sub === null) ? semver.coerce("0") : v2Sub;
-      return semver.rcompare(v1Sub, v2Sub);
-    }
-  });
-  const newestSemverDir = semverDirs[0];
-  targetDir = `${gameDir}/bin/${newestVersionDir.name}/res_mods/${newestSemverDir.name}`;
+  targetDir = `${gameDir}/bin/${newestVersionDir.name}/res_mods`;
 } catch (e) {
   console.error(e);
   console.error(`Failed to locate a target directory in '${gameDir}'. Is it a valid WoWS directory?`);
