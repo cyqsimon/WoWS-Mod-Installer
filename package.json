@@ -1,6 +1,6 @@
 {
   "name": "wows-mod-installer",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Installs Mods for World of Warships",
   "main": "index.js",
   "scripts": {
