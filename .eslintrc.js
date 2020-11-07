@@ -7,7 +7,7 @@ module.exports = {
   },
   "extends": [
     "eslint:recommended",
-    "C:/Users/cyq/AppData/Roaming/npm/node_modules/eslint-config-google/index.js",
+    "eslint-config-google",
   ],
   "globals": {
     "Atomics": "readonly",
@@ -24,7 +24,7 @@ module.exports = {
     "max-len": [
       "off",
     ],
-    
+
     // Error
     "linebreak-style": [
       "error",
@@ -34,20 +34,20 @@ module.exports = {
       "error",
       "always",
     ],
-    
+
     // Warn
     "camelcase": [
       "warn",
       {
         "ignoreDestructuring": true,
-      }
+      },
     ],
     "one-var": [
       "warn",
       {
         "initialized": "never",
         "uninitialized": "consecutive",
-      }
+      },
     ],
     "no-unused-vars": [
       "warn",
@@ -56,7 +56,7 @@ module.exports = {
         "args": "none",
         "ignoreRestSiblings": true,
         "caughtErrors": "none",
-      }
+      },
     ],
     "guard-for-in": [
       "warn",
@@ -82,6 +82,6 @@ module.exports = {
     "arrow-parens": [
       "warn",
       "always",
-    ]
+    ],
   },
 };
