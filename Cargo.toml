@@ -1,5 +1,5 @@
 [package]
-name = "WoWS-Mod-Installer"
+name = "wows_mod_installer"
 version = "0.1.0"
 authors = ["cyqsimon <28627918+cyqsimon@users.noreply.github.com>"]
 edition = "2018"
