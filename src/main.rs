@@ -38,9 +38,9 @@ fn main() {
 
     // copy files
     println!("Copying all files in {} to {}.", mods_dir, target_dir);
-    let options = fs_extra::dir::CopyOptions {overwrite:true, skip_exist: false, copy_inside: true, content_only: true, ..Default::default()};
-    let result = fs_extra::dir::copy(&format!("{}", mods_dir), target_dir, &options);
-    match result {
+    let cp_opts = fs_extra::dir::CopyOptions {overwrite:true, skip_exist: false, copy_inside: true, content_only: true, ..Default::default()};
+    let cp_res = fs_extra::dir::copy(&format!("{}", mods_dir), target_dir, &cp_opts);
+    match cp_res {
         Ok(_) => exit_with_msg(&format!("Successfully copied all files from {} to {}.", mods_dir, target_dir), 0),
         Err(_) => exit_with_msg(&format!("Copying failed from {} to {} failed. Maybe you do not have enough permission?", mods_dir, target_dir), 1),
     };
