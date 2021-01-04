@@ -1,79 +1,24 @@
 use std::{fs, str};
 
+use itertools::Itertools;
+use json::JsonValue;
+
 const CONF_PATH_STR: &str = "./pref.json";
 
 fn main() {
-    // parse config
-    let conf_bytes = fs::read(CONF_PATH_STR).unwrap_or_else(|_| {
-        exit_with_msg(
-            &format!("Cannot read {}. Maybe it does not exist?", CONF_PATH_STR),
-            1,
-        )
-    });
-    let conf_json = str::from_utf8(&conf_bytes).unwrap_or_else(|_| {
-        exit_with_msg(
-            &format!(
-                "{} is not a valid UTF8 text file. Maybe it is corrupted?",
-                CONF_PATH_STR
-            ),
-            1,
-        )
-    });
-    let conf_obj = json::parse(conf_json).unwrap_or_else(|_| {
-        exit_with_msg(
-            &format!(
-                "{} failed to parse as JSON. Maybe it contains syntax errors?",
-                CONF_PATH_STR
-            ),
-            1,
-        )
-    });
-    let game_dir_jv = &conf_obj["gameDir"];
-    let mods_dir_jv = &conf_obj["modsDir"];
-    if game_dir_jv.is_null() || mods_dir_jv.is_null() {
-        exit_with_msg(
-            &format!("'gameDir' and 'modsDir' must be defined in JSON."),
-            1,
-        );
-    }
-    let game_dir = &format!("{}", game_dir_jv);
-    let mods_dir = &format!("{}", mods_dir_jv);
+    // read and parse conf
+    let conf = read_conf(CONF_PATH_STR).unwrap_or_else(|e_str| exit_with_msg(&e_str, 1));
+
+    // get values from conf
+    let game_dir = conf["gameDir"]
+        .as_str()
+        .unwrap_or_else(|| exit_with_msg("\"gameDir\" is not a string.", 1));
+    let mods_dir = conf["modsDir"]
+        .as_str()
+        .unwrap_or_else(|| exit_with_msg("\"modsDir\" is not a string.", 1));
 
     // locate target
-    let bin_dir = &format!("{}/bin", game_dir);
-    let vers_dirs: Vec<_> = fs::read_dir(bin_dir)
-        .unwrap_or_else(|_| {
-            exit_with_msg(
-                &format!(
-                    "Cannot read {}. Maybe it does not exist or is not a directory?",
-                    bin_dir
-                ),
-                1,
-            )
-        })
-        .collect();
-    if vers_dirs.iter().any(|r| r.is_err()) {
-        exit_with_msg(
-            &format!("Error while reading the content of directory {}.", bin_dir),
-            1,
-        );
-    }
-    let mut vers_dirs_names: Vec<_> = vers_dirs
-        .into_iter()
-        .map(|r| r.unwrap().file_name())
-        .collect();
-    vers_dirs_names.sort();
-    let newest_ver_dir_name = vers_dirs_names
-        .last()
-        .unwrap_or_else(|| {
-            exit_with_msg(
-                &format!("{} does not contain any version directory.", bin_dir),
-                1,
-            )
-        })
-        .to_str()
-        .unwrap();
-    let target_dir = &format!("{}/{}/res_mods", bin_dir, newest_ver_dir_name);
+    let target_dir = locate_target_dir(game_dir).unwrap_or_else(|e_str| exit_with_msg(&e_str, 1));
 
     // copy files
     println!("Copying all files in {} to {}.", mods_dir, target_dir);
@@ -84,7 +29,7 @@ fn main() {
         content_only: true,
         ..Default::default()
     };
-    let cp_res = fs_extra::dir::copy(&format!("{}", mods_dir), target_dir, &cp_opts);
+    let cp_res = fs_extra::dir::copy(mods_dir, &target_dir, &cp_opts);
     match cp_res {
         Ok(_) => exit_with_msg(
             &format!(
@@ -101,6 +46,54 @@ fn main() {
             1,
         ),
     };
+}
+
+fn read_conf(conf_path: &str) -> Result<JsonValue, String> {
+    // read file into bytes
+    let conf_bytes = fs::read(conf_path)
+        .map_err(|e| format!("Cannot read {}.\n{}", conf_path, e.to_string()))?;
+
+    // parse bytes into str
+    let conf_json = str::from_utf8(&conf_bytes).map_err(|e| {
+        format!(
+            "{} is not a valid UTF8 text file.\n{}",
+            conf_path,
+            e.to_string()
+        )
+    })?;
+
+    // parse str into json obj
+    let conf_obj = json::parse(conf_json)
+        .map_err(|e| format!("Cannot parse {} as JSON.\n{}", conf_path, e.to_string()))?;
+
+    return Ok(conf_obj);
+}
+
+fn locate_target_dir(game_dir_path: &str) -> Result<String, String> {
+    // <gameDir>/bin
+    let bin_dir_path = format!("{}/bin", game_dir_path);
+
+    // get target dir
+    let target_dir_name = fs::read_dir(&bin_dir_path)
+        .map_err(|e| format!("Cannot read {}.\n{}", bin_dir_path, e.to_string()))? // short-circuit return Err
+        .collect::<Result<Vec<_>, _>>() // collect() magic; Iter<Result<a, b>> -> Result<Vec<a>, b>
+        .map_err(|e| {
+            format!(
+                "Cannot read a subdirectory of {}.\n{}",
+                bin_dir_path,
+                e.to_string()
+            )
+        })? // short-circuit return Err
+        .into_iter()
+        .sorted_by_key(|d| d.file_name()) // sort by version number
+        .last() // take largest version number (newest)
+        .ok_or_else(|| format!("{} does not contain any version directory.", bin_dir_path))? // short-circuit return Err
+        .file_name()
+        .into_string()
+        .map_err(|s| format!("{:?} is an unsupported dir name.", s))?;
+
+    // <gameDir>/bin/<newestVer>/res_mods
+    return Ok(format!("{}/{}/res_mods", bin_dir_path, target_dir_name));
 }
 
 fn prompt_exit(code: i32) -> ! {
