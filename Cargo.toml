@@ -1,8 +1,8 @@
 [package]
-name = "wows_mod_installer"
-version = "0.1.0"
 authors = ["cyqsimon <28627918+cyqsimon@users.noreply.github.com>"]
 edition = "2018"
+name = "wows_mod_installer"
+version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
