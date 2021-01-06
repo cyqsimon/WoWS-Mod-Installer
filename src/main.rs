@@ -90,7 +90,7 @@ fn locate_target_dir(game_dir_path: &str) -> Result<String, String> {
         .ok_or_else(|| format!("{} does not contain any version directory.", bin_dir_path))? // short-circuit return Err
         .file_name()
         .into_string()
-        .map_err(|s| format!("{:?} is an unsupported dir name.", s))?;
+        .map_err(|s| format!("Unexpected error: {:?} is an unsupported dir name.", s))?;
 
     // <gameDir>/bin/<newestVer>/res_mods
     return Ok(format!("{}/{}/res_mods", bin_dir_path, target_dir_name));
