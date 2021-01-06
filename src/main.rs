@@ -105,10 +105,10 @@ fn prompt_exit(code: i32) -> ! {
             break;
         };
     }
-    std::process::exit(code)
+    std::process::exit(code);
 }
 
 fn exit_with_msg(msg: &str, code: i32) -> ! {
     println!("{}", msg);
-    prompt_exit(code)
+    prompt_exit(code);
 }
