@@ -1,27 +1,82 @@
-use std::{fs, str};
+use std::{fmt, io, path::PathBuf};
 
+use fs_err as fs;
 use itertools::Itertools;
-use json::JsonValue;
 
-const CONF_PATH_STR: &str = "./pref.json";
+const CONF_PATH_STR: &str = "pref.json";
+
+#[derive(Debug)]
+pub enum Error {
+    IoError(io::Error),
+    JsonError(json::Error),
+    ConfKeyMissing(String),
+    CopyError(fs_extra::error::Error),
+}
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Self::IoError(err)
+    }
+}
+impl From<json::Error> for Error {
+    fn from(err: json::Error) -> Self {
+        Self::JsonError(err)
+    }
+}
+impl From<fs_extra::error::Error> for Error {
+    fn from(err: fs_extra::error::Error) -> Self {
+        // we only use `fs_extra` for copying step
+        Self::CopyError(err)
+    }
+}
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Error::*;
+        let repr = match self {
+            IoError(err) => format!("IO Error: {}", err),
+            JsonError(err) => format!("Json Error: {}", err),
+            ConfKeyMissing(err) => format!("Key missing in {}: \"{}\"", CONF_PATH_STR, err),
+            CopyError(err) => format!("Copy Error: {}", err),
+        };
+        write!(f, "{}", repr)
+    }
+}
 
 fn main() {
-    // read and parse conf
-    let conf = read_conf(CONF_PATH_STR).unwrap_or_else(|e_str| exit_with_msg(&e_str, 1));
+    if let Err(err) = main_impl() {
+        exit_with_msg(err.to_string(), 1);
+    }
+}
 
-    // get values from conf
-    let game_dir = conf["gameDir"]
+fn main_impl() -> Result<(), Error> {
+    let conf = json::parse(&fs::read_to_string(CONF_PATH_STR)?)?;
+
+    let game_dir: PathBuf = conf["gameDir"]
         .as_str()
-        .unwrap_or_else(|| exit_with_msg("\"gameDir\" is not a string.", 1));
-    let mods_dir = conf["modsDir"]
+        .ok_or(Error::ConfKeyMissing("gameDir".into()))?
+        .into();
+    let mods_dir: PathBuf = conf["modsDir"]
         .as_str()
-        .unwrap_or_else(|| exit_with_msg("\"modsDir\" is not a string.", 1));
+        .ok_or(Error::ConfKeyMissing("modsDir".into()))?
+        .into();
 
     // locate target
-    let target_dir = locate_target_dir(game_dir).unwrap_or_else(|e_str| exit_with_msg(&e_str, 1));
+    let bin_dir = game_dir.join("bin"); // <game_dir>/bin
+    let res_mods_dir = fs::read_dir(&bin_dir)?
+        .collect::<Result<Vec<_>, _>>()? // `collect` fails if any subdirectory errors during read
+        .into_iter()
+        .sorted_by_key(|d| d.file_name()) // sort by version number
+        .last() // largest version number is assumed to be newest
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("{:?} does not contain any version directory", bin_dir),
+            )
+        })?
+        .path() // <game_dir>/bin/<newest_ver>
+        .join("res_mods"); // <game_dir>/bin/<newest_ver>/res_mods
 
     // copy files
-    println!("Copying all files in {} to {}.", mods_dir, target_dir);
+    println!("Copying all files in {:?} to {:?}.", mods_dir, res_mods_dir);
     let cp_opts = fs_extra::dir::CopyOptions {
         overwrite: true,
         skip_exist: false,
@@ -29,74 +84,19 @@ fn main() {
         content_only: true,
         ..Default::default()
     };
-    let cp_res = fs_extra::dir::copy(mods_dir, &target_dir, &cp_opts);
-    match cp_res {
-        Ok(_) => exit_with_msg(
-            &format!(
-                "Successfully copied all files from {} to {}.",
-                mods_dir, target_dir
-            ),
-            0,
-        ),
-        Err(_) => exit_with_msg(
-            &format!(
-                "Copying failed from {} to {} failed. Maybe you do not have enough permission?",
-                mods_dir, target_dir
-            ),
-            1,
-        ),
-    };
+    fs_extra::dir::copy(&mods_dir, &res_mods_dir, &cp_opts)?;
+
+    println!(
+        "Successfully copied all files from {:?} to {:?}.",
+        mods_dir, res_mods_dir
+    );
+
+    Ok(())
 }
 
-fn read_conf(conf_path: &str) -> Result<JsonValue, String> {
-    // read file into bytes
-    let conf_bytes = fs::read(conf_path)
-        .map_err(|e| format!("Cannot read {}.\n{}", conf_path, e.to_string()))?;
+fn exit_with_msg(msg: impl AsRef<str>, code: i32) -> ! {
+    println!("{}", msg.as_ref());
 
-    // parse bytes into str
-    let conf_json = str::from_utf8(&conf_bytes).map_err(|e| {
-        format!(
-            "{} is not a valid UTF8 text file.\n{}",
-            conf_path,
-            e.to_string()
-        )
-    })?;
-
-    // parse str into json obj
-    let conf_obj = json::parse(conf_json)
-        .map_err(|e| format!("Cannot parse {} as JSON.\n{}", conf_path, e.to_string()))?;
-
-    return Ok(conf_obj);
-}
-
-fn locate_target_dir(game_dir_path: &str) -> Result<String, String> {
-    // <gameDir>/bin
-    let bin_dir_path = format!("{}/bin", game_dir_path);
-
-    // get target dir
-    let target_dir_name = fs::read_dir(&bin_dir_path)
-        .map_err(|e| format!("Cannot read {}.\n{}", bin_dir_path, e.to_string()))? // short-circuit return Err
-        .collect::<Result<Vec<_>, _>>() // collect() magic; Iter<Result<a, b>> -> Result<Vec<a>, b>
-        .map_err(|e| {
-            format!(
-                "Cannot read a subdirectory of {}.\n{}",
-                bin_dir_path,
-                e.to_string()
-            )
-        })? // short-circuit return Err
-        .into_iter()
-        .sorted_by_key(|d| d.file_name()) // sort by version number
-        .last() // take largest version number (newest)
-        .ok_or_else(|| format!("{} does not contain any version directory.", bin_dir_path))? // short-circuit return Err
-        .file_name()
-        .into_string()
-        .map_err(|s| format!("Unexpected error: {:?} is an unsupported dir name.", s))?;
-
-    // <gameDir>/bin/<newestVer>/res_mods
-    return Ok(format!("{}/{}/res_mods", bin_dir_path, target_dir_name));
-}
-
-fn prompt_exit(code: i32) -> ! {
     println!("Press any key to continue...");
     // block until a keyboard event is read
     loop {
@@ -106,9 +106,4 @@ fn prompt_exit(code: i32) -> ! {
         };
     }
     std::process::exit(code);
-}
-
-fn exit_with_msg(msg: &str, code: i32) -> ! {
-    println!("{}", msg);
-    prompt_exit(code);
 }
