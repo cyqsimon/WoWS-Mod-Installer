@@ -42,8 +42,9 @@ impl fmt::Display for Error {
 }
 
 fn main() {
-    if let Err(err) = main_impl() {
-        exit_with_msg(err.to_string(), 1);
+    match main_impl() {
+        Ok(_) => prompt_exit::<&str>(None, 0),
+        Err(err) => prompt_exit(Some(err.to_string()), 1),
     }
 }
 
@@ -94,9 +95,13 @@ fn main_impl() -> Result<(), Error> {
     Ok(())
 }
 
-fn exit_with_msg(msg: impl AsRef<str>, code: i32) -> ! {
-    println!("{}", msg.as_ref());
-
+fn prompt_exit<S>(msg: Option<S>, code: i32) -> !
+where
+    S: AsRef<str>,
+{
+    if let Some(msg_inner) = msg {
+        println!("{}", msg_inner.as_ref());
+    }
     println!("Press any key to continue...");
     // block until a keyboard event is read
     loop {
