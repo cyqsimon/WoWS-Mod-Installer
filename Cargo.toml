@@ -2,7 +2,7 @@
 authors = ["cyqsimon <28627918+cyqsimon@users.noreply.github.com>"]
 edition = "2021"
 name = "wows_mod_installer"
-version = "4.0.0"
+version = "4.0.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
