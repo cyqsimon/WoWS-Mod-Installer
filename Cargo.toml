@@ -2,7 +2,7 @@
 authors = ["cyqsimon <28627918+cyqsimon@users.noreply.github.com>"]
 edition = "2021"
 name = "wows_mod_installer"
-version = "4.0.1"
+version = "4.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,5 +10,6 @@ version = "4.0.1"
 crossterm = "0.23.0"
 fs-err = "2.7.0"
 fs_extra = "1.2.0"
-itertools = "0.10.3"
+# itertools = "0.10.3"
 json = "0.12.4"
+tap = "1.0.1"

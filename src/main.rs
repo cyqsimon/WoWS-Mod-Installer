@@ -1,7 +1,7 @@
 use std::{fmt, io, path::PathBuf};
 
 use fs_err as fs;
-use itertools::Itertools;
+use tap::TapFallible;
 
 const CONF_PATH_STR: &str = "pref.json";
 
@@ -60,24 +60,19 @@ fn main_impl() -> Result<(), Error> {
         .ok_or(Error::ConfKeyMissing("modsDir".into()))?
         .into();
 
-    // locate target
-    let bin_dir = game_dir.join("bin"); // <game_dir>/bin
-    let res_mods_dir = fs::read_dir(&bin_dir)?
-        .collect::<Result<Vec<_>, _>>()? // `collect` fails if any subdirectory errors during read
-        .into_iter()
-        .sorted_by_key(|d| d.file_name()) // sort by version number
-        .last() // largest version number is assumed to be newest
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::NotFound,
-                format!("{:?} does not contain any version directory", bin_dir),
-            )
-        })?
-        .path() // <game_dir>/bin/<newest_ver>
-        .join("res_mods"); // <game_dir>/bin/<newest_ver>/res_mods
+    // locate targets
+    let res_mods_dirs = fs::read_dir(game_dir.join("bin"))?
+        .filter_map(|res| res.tap_err(|e| println!("Failed to read a directory: {:?}", e)).ok())
+        .map(
+            |d| {
+                d.path() // <game_dir>/bin/<ver>
+                    .join("res_mods")
+            }, // <game_dir>/bin/<ver>/res_mods
+        )
+        .collect::<Vec<_>>();
 
     // copy files
-    println!("Copying all files in {:?} to {:?}.", mods_dir, res_mods_dir);
+    println!("Copying all files in {:?} to {:?}.", mods_dir, res_mods_dirs);
     let cp_opts = fs_extra::dir::CopyOptions {
         overwrite: true,
         skip_exist: false,
@@ -85,11 +80,15 @@ fn main_impl() -> Result<(), Error> {
         content_only: true,
         ..Default::default()
     };
-    fs_extra::dir::copy(&mods_dir, &res_mods_dir, &cp_opts)?;
+    for target in res_mods_dirs.iter() {
+        // we copy into `res_mods` of all versions (as opposed to just the newest version)
+        // because there might be pre-downloads of upcoming updates.
+        fs_extra::dir::copy(&mods_dir, target, &cp_opts)?;
+    }
 
     println!(
         "Successfully copied all files from {:?} to {:?}.",
-        mods_dir, res_mods_dir
+        mods_dir, res_mods_dirs
     );
 
     Ok(())
